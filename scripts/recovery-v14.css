@@ -1,0 +1,30 @@
+/* V14: Recovery snapshot rows remain readable on narrow Android screens.
+   Original flex layout squeezed <main> between time badge and three buttons,
+   forcing one character on each line. Separate text and controls by grid row. */
+#recoverySnapshots .v9Line,#recoveryTrash .v9Line{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:11px;
+  grid-template-areas:"snapshotText" "snapshotDate" "snapshotActions";
+  padding:13px 14px;align-items:center;min-width:0;
+}
+#recoverySnapshots .v9Line>main,#recoveryTrash .v9Line>main{
+  grid-area:snapshotText;display:block;min-width:0;width:100%;max-width:100%;
+  overflow-wrap:break-word;word-break:normal;line-height:1.45;
+}
+#recoverySnapshots .v9Line>main strong,#recoveryTrash .v9Line>main strong{
+  display:block;white-space:normal;font-size:13px;line-height:1.45;
+}
+#recoverySnapshots .v9Line>main small,#recoveryTrash .v9Line>main small{
+  display:block;white-space:normal;font-size:11px;line-height:1.6;margin-top:4px;
+}
+#recoverySnapshots .v9Chip,#recoveryTrash .v9Chip{
+  grid-area:snapshotDate;min-width:0;width:max-content;max-width:100%;
+  white-space:normal;overflow-wrap:break-word;line-height:1.35;
+}
+#recoverySnapshots .v9Actions,#recoveryTrash .v9Actions{
+  grid-area:snapshotActions;display:flex;align-items:center;justify-content:flex-start;
+  flex-wrap:wrap;min-width:0;gap:8px;
+}
+#recoverySnapshots .v9Actions .btn,#recoveryTrash .v9Actions .btn{
+  white-space:nowrap;min-height:36px;
+}
+
