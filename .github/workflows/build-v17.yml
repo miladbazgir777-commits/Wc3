@@ -1,0 +1,66 @@
+name: Build WC3 Journal V17 APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'WC3_Journal_V17_Android_Source.zip'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack and verify exact V17 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s WC3_Journal_V17_Android_Source.zip || { echo 'Upload WC3_Journal_V17_Android_Source.zip to the repository root.'; exit 1; }
+          unzip -q WC3_Journal_V17_Android_Source.zip -d extracted
+          test -s extracted/WC3Journal_AndroidStudio/app/src/main/assets/index.html
+          cp -a extracted/WC3Journal_AndroidStudio project
+          grep -q 'WC3 Journal V17' project/app/src/main/assets/index.html
+          grep -q 'id="v17-interaction-polish"' project/app/src/main/assets/index.html
+          grep -q 'class="cupStage"' project/app/src/main/assets/index.html
+          grep -q 'V14: Recovery snapshot rows' project/app/src/main/assets/index.html
+          grep -q 'versionCode 17' project/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install Android SDK platform and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Compile debug APK
+        working-directory: project
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Collect installer and preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp project/app/build/outputs/apk/debug/app-debug.apk WC3-Journal-V17.apk
+          cp project/app/src/main/assets/index.html WC3-Journal-V17-Preview.html
+          test -s WC3-Journal-V17.apk
+          test -s WC3-Journal-V17-Preview.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WC3-Journal-V17-Installer
+          path: WC3-Journal-V17.apk
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WC3-Journal-V17-Preview
+          path: WC3-Journal-V17-Preview.html
+          if-no-files-found: error
+          retention-days: 30
