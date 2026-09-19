@@ -1,0 +1,76 @@
+name: Build WC3 Journal V14 APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'WC3_Journal_V13_Android_Source.zip'
+      - 'WC3_Journal_V14_Android_Source.zip'
+      - 'scripts/recovery-v14.css'
+      - '.github/workflows/build-v14.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract source and correct recovery snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s WC3_Journal_V14_Android_Source.zip ]]; then
+            unzip -q WC3_Journal_V14_Android_Source.zip -d extracted
+            cp -a extracted/WC3Journal_AndroidStudio project
+            echo 'Using complete V14 source.'
+          else
+            test -s WC3_Journal_V13_Android_Source.zip
+            unzip -q WC3_Journal_V13_Android_Source.zip -d extracted
+            cp -a extracted/WC3Journal_AndroidStudio project
+            python3 -c 'from pathlib import Path; p=Path("project/app/src/main/assets/index.html"); h=p.read_text(); c=Path("scripts/recovery-v14.css").read_text(); assert h.count("</style>")==1 and "id=\"recoverySnapshots\"" in h and "/* V14: Recovery snapshot rows" not in h; p.write_text(h.replace("</style>",c+"</style>",1)); assert c in p.read_text()'
+            echo 'Applied V14 Recovery snapshot fix to V13 source.'
+          fi
+          test -s project/app/build.gradle
+          test -s project/app/src/main/assets/index.html
+          grep -q 'V14: Recovery snapshot rows' project/app/src/main/assets/index.html
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Compile and debug-sign installable Android APK
+        working-directory: project
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify and name files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s project/app/build/outputs/apk/debug/app-debug.apk
+          cp project/app/build/outputs/apk/debug/app-debug.apk WC3-Journal-V14.apk
+          cp project/app/src/main/assets/index.html WC3-Journal-V14-Preview.html
+          unzip -t WC3-Journal-V14.apk | tail -1
+          grep -q 'V14: Recovery snapshot rows' WC3-Journal-V14-Preview.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WC3-Journal-V14-Installer
+          path: WC3-Journal-V14.apk
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WC3-Journal-V14-HTML
+          path: WC3-Journal-V14-Preview.html
+          if-no-files-found: error
+          retention-days: 30
